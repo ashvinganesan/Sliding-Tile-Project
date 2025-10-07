@@ -10,6 +10,8 @@ let n = 4;
 let tiles = []; // 0 represents blank
 let animating = false;
 let worker = null;
+let javaInitPromise = null;
+let javaReady = false;
 
 function setGrid(n) {
   boardEl.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
@@ -157,7 +159,7 @@ function applyMove(m) {
 function solve() {
   if (isGoal(tiles)) { statusEl.textContent = 'Already solved'; return; }
   // Prefer Java solver via CheerpJ if available (requires docs/solver.jar)
-  if (window.cheerpjRunJar) {
+  if (window.cheerpjRunJar || window.cheerpjRunStaticMethod) {
     solveWithJava();
   } else {
     ensureWorker();
@@ -168,12 +170,21 @@ function solve() {
 
 async function solveWithJava() {
   try {
-    statusEl.textContent = 'Initializing Java solver...';
-    await cheerpjInit();
-    await cheerpjRunJar('solver.jar');
+    if (!javaInitPromise) {
+      statusEl.textContent = 'Initializing Java solver...';
+      javaInitPromise = (async () => {
+        await cheerpjInit();
+        await cheerpjRunJar('solver.jar');
+        return true;
+      })();
+    }
+    if (!javaReady) {
+      await javaInitPromise; javaReady = true;
+    }
     const csv = tiles.join(',');
-    // Call static: SolverBridge.solveCSV(int size, String csv)
-    const moveStr = await cjCall('SolverBridge', 'solveCSV', n, csv);
+    // Call static via CheerpJ v3: SolverBridge.solveCSV(int, String) -> String
+    const sig = '(ILjava/lang/String;)Ljava/lang/String;';
+    const moveStr = await cheerpjRunStaticMethod('SolverBridge', 'solveCSV', sig, n, csv);
     const moves = String(moveStr || '').split('').filter(Boolean);
     if (moves.length === 0) {
       statusEl.textContent = isGoal(tiles) ? 'Already solved' : 'No solution found';
