@@ -6,7 +6,11 @@ self.onmessage = (e) => {
     try {
       const { n, tiles } = payload;
       const res = idaStar(n, tiles);
-      postMessage({ type: 'solution', payload: res || [] });
+      if (res === null) {
+        postMessage({ type: 'no-solution' });
+      } else {
+        postMessage({ type: 'solution', payload: res });
+      }
     } catch (err) {
       postMessage({ type: 'error', payload: (err && err.message) || String(err) });
     }

@@ -111,6 +111,10 @@ function ensureWorker() {
     if (type === 'solution') {
       playSolution(payload);
     }
+    if (type === 'no-solution') {
+      animating = false;
+      statusEl.textContent = 'No solution found';
+    }
     if (type === 'error') {
       statusEl.textContent = payload || 'Solver error';
     }
@@ -119,7 +123,7 @@ function ensureWorker() {
 
 async function playSolution(moves) {
   if (!Array.isArray(moves) || moves.length === 0) {
-    statusEl.textContent = 'Already solved';
+    statusEl.textContent = isGoal(tiles) ? 'Already solved' : 'No solution found';
     return;
   }
   animating = true;
@@ -130,7 +134,7 @@ async function playSolution(moves) {
     await sleep(140);
   }
   animating = false;
-  statusEl.textContent = 'Solved!';
+  statusEl.textContent = isGoal(tiles) ? 'Solved!' : 'Unexpected: not solved';
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -140,10 +144,11 @@ function applyMove(m) {
   const blank = tiles.indexOf(0);
   const br = Math.floor(blank / n), bc = blank % n;
   let nr = br, nc = bc;
-  if (m === 'U') nr++;
-  if (m === 'D') nr--;
-  if (m === 'L') nc++;
-  if (m === 'R') nc--;
+  // Moves indicate the BLANK's direction
+  if (m === 'U') nr = br - 1;
+  if (m === 'D') nr = br + 1;
+  if (m === 'L') nc = bc - 1;
+  if (m === 'R') nc = bc + 1;
   if (nr < 0 || nr >= n || nc < 0 || nc >= n) return;
   const ni = nr * n + nc;
   [tiles[blank], tiles[ni]] = [tiles[ni], tiles[blank]];
