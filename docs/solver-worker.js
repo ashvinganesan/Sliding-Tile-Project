@@ -1,12 +1,12 @@
-// IDA* solver for n-puzzle using Manhattan distance with linear conflict
+// A* solver for n-puzzle mirroring Java implementation (Board + A_star)
 
 self.onmessage = (e) => {
   const { type, payload } = e.data || {};
   if (type === 'solve') {
     try {
       const { n, tiles } = payload;
-      const res = idaStar(n, tiles);
-      if (res === null) {
+      const res = aStar(n, tiles);
+      if (res == null) {
         postMessage({ type: 'no-solution' });
       } else {
         postMessage({ type: 'solution', payload: res });
@@ -17,56 +17,62 @@ self.onmessage = (e) => {
   }
 };
 
-function idaStar(n, start) {
-  const startKey = key(start);
+function aStar(n, startTiles) {
   const goal = goalState(n);
-  const goalKey = key(goal);
-  if (startKey === goalKey) return [];
-  const blankStart = start.indexOf(0);
-  const startH = heuristic(n, start);
-  let bound = startH;
-  const path = [];
-  const visited = new Set();
+  if (arraysEqual(startTiles, goal)) return [];
 
-  while (true) {
-    const t = search(n, start, blankStart, 0, bound, -1, path, visited);
-    if (Array.isArray(t)) return t; // found solution (path of moves)
-    if (t === Infinity) return null; // not found
-    bound = t;
-    postMessage({ type: 'status', payload: `Deepening to bound ${bound}...` });
+  const startKey = key(startTiles);
+  const open = new MinHeap();
+  const gScore = new Map();
+  const parent = new Map(); // key -> {prevKey, move}
+
+  const startH = heuristicJavaStyle(n, startTiles, true, 2);
+  gScore.set(startKey, 0);
+  open.push({ f: weightScore(startH, 0), key: startKey, blank: startTiles.indexOf(0), tiles: startTiles });
+
+  let expanded = 0;
+  let maxFrontier = 0;
+
+  while (!open.isEmpty()) {
+    const node = open.pop();
+    const currentTiles = node.tiles;
+    const currentKey = node.key;
+    const currentG = gScore.get(currentKey) ?? Infinity;
+
+    if (arraysEqual(currentTiles, goal)) {
+      return reconstructPath(parent, currentKey);
+    }
+
+    expanded++;
+    if (expanded % 1000 === 0) {
+      postMessage({ type: 'status', payload: `A*: expanded ${expanded}, frontier ${open.size()}...` });
+    }
+
+    const blank = currentTiles.indexOf(0);
+    const r = Math.floor(blank / n), c = blank % n;
+    const moves = [];
+    if (r > 0) moves.push(0); // U
+    if (r < n - 1) moves.push(1); // D
+    if (c > 0) moves.push(2); // L
+    if (c < n - 1) moves.push(3); // R
+
+    for (const m of moves) {
+      const ni = neighborIndex(n, blank, m);
+      const next = currentTiles.slice();
+      swap(next, blank, ni);
+      const nextKey = key(next);
+      const tentativeG = currentG + 1;
+      const prevBest = gScore.get(nextKey);
+      if (prevBest !== undefined && tentativeG >= prevBest) continue;
+      gScore.set(nextKey, tentativeG);
+      parent.set(nextKey, { prevKey: currentKey, move: moveChar(m) });
+      const h = heuristicJavaStyle(n, next, true, 2);
+      open.push({ f: weightScore(h, tentativeG), key: nextKey, tiles: next });
+    }
+
+    maxFrontier = Math.max(maxFrontier, open.size());
   }
-}
-
-function search(n, state, blankIndex, g, bound, prevMove, path, visited) {
-  const h = heuristic(n, state);
-  const f = g + h;
-  if (f > bound) return f;
-  if (isGoal(state)) return [...path];
-  const keyStr = key(state);
-  if (visited.has(keyStr)) return Infinity;
-  visited.add(keyStr);
-
-  let min = Infinity;
-  const br = Math.floor(blankIndex / n), bc = blankIndex % n;
-  // moves encode opposite to avoid undo: 0=U,1=D,2=L,3=R
-  const moves = [];
-  if (br > 0 && prevMove !== 1) moves.push(0);
-  if (br < n - 1 && prevMove !== 0) moves.push(1);
-  if (bc > 0 && prevMove !== 3) moves.push(2);
-  if (bc < n - 1 && prevMove !== 2) moves.push(3);
-
-  for (const m of moves) {
-    const ni = neighborIndex(n, blankIndex, m);
-    swap(state, blankIndex, ni);
-    path.push(moveChar(m));
-    const t = search(n, state, ni, g + 1, bound, m, path, visited);
-    if (Array.isArray(t)) return t;
-    if (t < min) min = t;
-    path.pop();
-    swap(state, blankIndex, ni);
-  }
-  visited.delete(keyStr);
-  return min;
+  return null;
 }
 
 function neighborIndex(n, blank, move) {
@@ -93,45 +99,88 @@ function isGoal(state) {
   return state[state.length - 1] === 0;
 }
 
-function heuristic(n, state) {
-  let dist = 0;
-  for (let i = 0; i < state.length; i++) {
-    const v = state[i];
-    if (v === 0) continue;
-    const tr = Math.floor((v - 1) / n), tc = (v - 1) % n;
-    const r = Math.floor(i / n), c = i % n;
-    dist += Math.abs(tr - r) + Math.abs(tc - c);
+// Java Board.heuristic(useStep=true, stepFromMax=2) style
+function heuristicJavaStyle(n, state, useStep, stepFromMax) {
+  let passes = true;
+  let step = 0;
+  let count = 0;
+  let adder = 1000000;
+  while (Math.min(n, n) > (step + stepFromMax) && useStep && passes) {
+    for (let i = 0; i < state.length; i++) {
+      const v = state[i];
+      if ((v - 1 + (n * step)) < n * (step + 1) || ((v - 1) % n) === step) {
+        if (v !== 0) {
+          const iX = (i + 1) % n;
+          const iY = Math.floor((i + 1) / n);
+          const numbX = v % n;
+          const numbY = Math.floor(v / n);
+          count += Math.abs(iX - numbX) + Math.abs(iY - numbY);
+        }
+      }
+      if (passes) {
+        if (i < n || i % n === 0) {
+          if (state[i] !== i + 1) {
+            passes = false;
+          }
+        }
+      }
+    }
+    if (!passes) {
+      count += adder;
+    } else {
+      adder = Math.floor(adder / 10);
+      step++;
+    }
   }
-  // Linear conflict (simple version)
-  dist += linearConflict(n, state);
-  return dist;
+  return count;
 }
 
-function linearConflict(n, state) {
-  let conflicts = 0;
-  // rows
-  for (let r = 0; r < n; r++) {
-    let maxSeen = -1;
-    for (let c = 0; c < n; c++) {
-      const v = state[r * n + c];
-      if (v !== 0 && Math.floor((v - 1) / n) === r) {
-        const targetCol = (v - 1) % n;
-        if (targetCol > maxSeen) maxSeen = targetCol; else conflicts += 2;
-      }
+function weightScore(h, g) {
+  // mirror Java: score = 10*heuristic + 1*moves
+  return 10 * h + g;
+}
+
+function arraysEqual(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+// Simple binary min-heap for {f, key, tiles}
+class MinHeap {
+  constructor() { this.h = []; }
+  size() { return this.h.length; }
+  isEmpty() { return this.h.length === 0; }
+  push(x) { this.h.push(x); this._siftUp(this.h.length - 1); }
+  pop() {
+    const a = this.h;
+    const top = a[0];
+    const last = a.pop();
+    if (a.length) { a[0] = last; this._siftDown(0); }
+    return top;
+  }
+  _siftUp(i) { const a = this.h; while (i > 0) { const p = (i - 1) >> 1; if (a[p].f <= a[i].f) break; [a[p], a[i]] = [a[i], a[p]]; i = p; } }
+  _siftDown(i) {
+    const a = this.h; const n = a.length;
+    while (true) {
+      let l = i * 2 + 1, r = l + 1, s = i;
+      if (l < n && a[l].f < a[s].f) s = l;
+      if (r < n && a[r].f < a[s].f) s = r;
+      if (s === i) break; [a[i], a[s]] = [a[s], a[i]]; i = s;
     }
   }
-  // cols
-  for (let c = 0; c < n; c++) {
-    let maxSeen = -1;
-    for (let r = 0; r < n; r++) {
-      const v = state[r * n + c];
-      if (v !== 0 && ((v - 1) % n) === c) {
-        const targetRow = Math.floor((v - 1) / n);
-        if (targetRow > maxSeen) maxSeen = targetRow; else conflicts += 2;
-      }
-    }
+}
+
+function reconstructPath(parent, goalKey) {
+  const moves = [];
+  let k = goalKey;
+  while (parent.has(k)) {
+    const { prevKey, move } = parent.get(k);
+    moves.push(move);
+    k = prevKey;
   }
-  return conflicts;
+  moves.reverse();
+  return moves;
 }
 
 

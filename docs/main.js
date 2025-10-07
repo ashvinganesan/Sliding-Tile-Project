@@ -156,9 +156,36 @@ function applyMove(m) {
 
 function solve() {
   if (isGoal(tiles)) { statusEl.textContent = 'Already solved'; return; }
-  ensureWorker();
-  statusEl.textContent = 'Solving...';
-  worker.postMessage({ type: 'solve', payload: { n, tiles } });
+  // Prefer Java solver via CheerpJ if available (requires docs/solver.jar)
+  if (window.cheerpjRunJar) {
+    solveWithJava();
+  } else {
+    ensureWorker();
+    statusEl.textContent = 'Solving...';
+    worker.postMessage({ type: 'solve', payload: { n, tiles } });
+  }
+}
+
+async function solveWithJava() {
+  try {
+    statusEl.textContent = 'Initializing Java solver...';
+    await cheerpjInit();
+    await cheerpjRunJar('solver.jar');
+    const csv = tiles.join(',');
+    // Call static: SolverBridge.solveCSV(int size, String csv)
+    const moveStr = await cjCall('SolverBridge', 'solveCSV', n, csv);
+    const moves = String(moveStr || '').split('').filter(Boolean);
+    if (moves.length === 0) {
+      statusEl.textContent = isGoal(tiles) ? 'Already solved' : 'No solution found';
+      return;
+    }
+    await playSolution(moves);
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = 'Java solver failed, falling back';
+    ensureWorker();
+    worker.postMessage({ type: 'solve', payload: { n, tiles } });
+  }
 }
 
 sizeEl.addEventListener('change', () => {
