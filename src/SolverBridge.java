@@ -7,9 +7,12 @@ public class SolverBridge {
         for (int i = 0; i < parts.length; i++) {
             tiles[i] = Integer.parseInt(parts[i].trim());
         }
+        // Use step heuristic. For 5x5, bias toward greedy best-first (movesWeight=0)
         Board initial = new Board(size, size, tiles, 0, true, 2);
         if (initial.isSolved()) return "";
-        A_star solver = new A_star(initial);
+        A_star solver = (size >= 5)
+                ? new A_star(initial, 10, 0)  // GBFS: faster, non-optimal
+                : new A_star(initial, 10, 1);  // A*
         Board.Direction[] path = solver.printPath();
         StringBuilder sb = new StringBuilder(path.length);
         for (Board.Direction d : path) {
