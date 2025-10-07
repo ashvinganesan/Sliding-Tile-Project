@@ -1,0 +1,22 @@
+:root { --tile: #1f2937; --tile-text: #fff; --bg: #0b1220; --accent: #22d3ee; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji"; background: var(--bg); color: #e5e7eb; }
+.app { max-width: 680px; margin: 0 auto; padding: 16px; }
+header { display: flex; flex-direction: column; gap: 8px; }
+h1 { margin: 8px 0 0 0; font-size: 28px; }
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+button, select { background: #0f172a; color: #e5e7eb; border: 1px solid #334155; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+#status { margin-left: 8px; min-height: 1em; color: var(--accent); }
+
+.board { position: relative; margin: 20px auto; width: 520px; height: 520px; border-radius: 12px; padding: 10px; background: #0f172a; display: grid; gap: 8px; }
+.tile { display: flex; align-items: center; justify-content: center; background: var(--tile); color: var(--tile-text); font-weight: 700; font-size: 28px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.35); transition: transform 160ms ease, background 200ms ease; user-select: none; }
+.tile.movable { background: #25334d; }
+.tile.blank { background: transparent; box-shadow: none; }
+
+@media (max-width: 640px) {
+  .board { width: 92vw; height: 92vw; }
+  .tile { font-size: 22px; }
+}
+
+
