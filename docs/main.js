@@ -176,9 +176,16 @@ async function solveWithJava() {
       await javaInitPromise; javaReady = true;
     }
     const csv = tiles.join(',');
-    // Call static via CheerpJ v3: puzzle.SolverBridge.solveCSV(int, String) -> String
+    // Try CheerpJ v3 static invocation first, then cjCall if present
     const sig = '(ILjava/lang/String;)Ljava/lang/String;';
-    const moveStr = await cheerpjRunStaticMethod('puzzle.SolverBridge', 'solveCSV', sig, n, csv);
+    let moveStr;
+    if (typeof cheerpjRunStaticMethod === 'function') {
+      moveStr = await cheerpjRunStaticMethod('puzzle.SolverBridge', 'solveCSV', sig, n, csv);
+    } else if (typeof cjCall === 'function') {
+      moveStr = await cjCall('puzzle.SolverBridge', 'solveCSV', n, csv);
+    } else {
+      throw new Error('CheerpJ API not found');
+    }
     const moves = String(moveStr || '').split('').filter(Boolean);
     if (moves.length === 0) {
       statusEl.textContent = isGoal(tiles) ? 'Already solved' : 'No solution found';
@@ -187,7 +194,7 @@ async function solveWithJava() {
     await playSolution(moves);
   } catch (err) {
     console.error(err);
-    statusEl.textContent = 'Java solver error';
+    statusEl.textContent = `Java solver error: ${err && err.message ? err.message : String(err)}`;
   }
 }
 
