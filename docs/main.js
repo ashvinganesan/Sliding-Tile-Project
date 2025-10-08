@@ -141,6 +141,24 @@ async function playSolution(moves) {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+async function waitForCheerpJLoader(timeoutMs = 10000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (typeof window.cheerpjInit === 'function') return;
+    await sleep(50);
+  }
+  throw new Error('CheerpJ loader not ready');
+}
+
+async function waitForCheerpJAPIs(timeoutMs = 5000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (typeof window.cheerpjRunStaticMethod === 'function' || typeof window.cjCall === 'function') return;
+    await sleep(50);
+  }
+  throw new Error('CheerpJ API not found');
+}
+
 // Moves are strings: 'U','D','L','R' indicating blank moves
 function applyMove(m) {
   const blank = tiles.indexOf(0);
@@ -164,6 +182,8 @@ function solve() {
 
 async function solveWithJava() {
   try {
+    // Ensure CheerpJ loader is present
+    await waitForCheerpJLoader();
     if (!javaInitPromise) {
       statusEl.textContent = 'Initializing Java solver...';
       javaInitPromise = (async () => {
@@ -175,6 +195,7 @@ async function solveWithJava() {
     if (!javaReady) {
       await javaInitPromise; javaReady = true;
     }
+    await waitForCheerpJAPIs();
     const csv = tiles.join(',');
     // Try CheerpJ v3 static invocation first, then cjCall if present
     const sig = '(ILjava/lang/String;)Ljava/lang/String;';
