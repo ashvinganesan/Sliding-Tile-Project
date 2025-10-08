@@ -176,9 +176,9 @@ async function solveWithJava() {
       await javaInitPromise; javaReady = true;
     }
     const csv = tiles.join(',');
-    // Call static via CheerpJ v3: SolverBridge.solveCSV(int, String) -> String
+    // Call static via CheerpJ v3: puzzle.SolverBridge.solveCSV(int, String) -> String
     const sig = '(ILjava/lang/String;)Ljava/lang/String;';
-    const moveStr = await cheerpjRunStaticMethod('SolverBridge', 'solveCSV', sig, n, csv);
+    const moveStr = await cheerpjRunStaticMethod('puzzle.SolverBridge', 'solveCSV', sig, n, csv);
     const moves = String(moveStr || '').split('').filter(Boolean);
     if (moves.length === 0) {
       statusEl.textContent = isGoal(tiles) ? 'Already solved' : 'No solution found';

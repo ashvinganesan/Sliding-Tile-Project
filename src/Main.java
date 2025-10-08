@@ -1,3 +1,5 @@
+package puzzle;
+
 /*
 Ashvin ganesan
 Mr. Paige

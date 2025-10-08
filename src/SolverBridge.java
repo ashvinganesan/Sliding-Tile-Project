@@ -1,5 +1,6 @@
-public class SolverBridge {
+package puzzle;
 
+public class SolverBridge {
     // Returns moves as a string of characters 'U','D','L','R'
     public static String solveCSV(int size, String csvTiles) {
         String[] parts = csvTiles.split(",");
@@ -7,12 +8,11 @@ public class SolverBridge {
         for (int i = 0; i < parts.length; i++) {
             tiles[i] = Integer.parseInt(parts[i].trim());
         }
-        // Use step heuristic. For 5x5, bias toward greedy best-first (movesWeight=0)
+        // Use step heuristic. For 5x5, use greedy layer-by-layer; otherwise A*
         Board initial = new Board(size, size, tiles, 0, true, 2);
         if (initial.isSolved()) return "";
         Board.Direction[] path;
         if (size >= 5) {
-            // Use greedy layer-by-layer for larger boards
             path = GreedyLayerSolver.solve(size, tiles);
         } else {
             A_star solver = new A_star(initial, 10, 1);
@@ -30,5 +30,3 @@ public class SolverBridge {
         return sb.toString();
     }
 }
-
-
