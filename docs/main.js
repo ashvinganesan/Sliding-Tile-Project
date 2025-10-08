@@ -158,14 +158,8 @@ function applyMove(m) {
 
 function solve() {
   if (isGoal(tiles)) { statusEl.textContent = 'Already solved'; return; }
-  // Prefer Java solver via CheerpJ if available (requires docs/solver.jar)
-  if (window.cheerpjRunJar || window.cheerpjRunStaticMethod) {
-    solveWithJava();
-  } else {
-    ensureWorker();
-    statusEl.textContent = 'Solving...';
-    worker.postMessage({ type: 'solve', payload: { n, tiles } });
-  }
+  statusEl.textContent = 'Solving with Java solver...';
+  solveWithJava();
 }
 
 async function solveWithJava() {
@@ -193,9 +187,7 @@ async function solveWithJava() {
     await playSolution(moves);
   } catch (err) {
     console.error(err);
-    statusEl.textContent = 'Java solver failed, falling back';
-    ensureWorker();
-    worker.postMessage({ type: 'solve', payload: { n, tiles } });
+    statusEl.textContent = 'Java solver error';
   }
 }
 
