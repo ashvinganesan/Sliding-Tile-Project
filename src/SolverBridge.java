@@ -10,10 +10,14 @@ public class SolverBridge {
         // Use step heuristic. For 5x5, bias toward greedy best-first (movesWeight=0)
         Board initial = new Board(size, size, tiles, 0, true, 2);
         if (initial.isSolved()) return "";
-        A_star solver = (size >= 5)
-                ? new A_star(initial, 10, 0)  // GBFS: faster, non-optimal
-                : new A_star(initial, 10, 1);  // A*
-        Board.Direction[] path = solver.printPath();
+        Board.Direction[] path;
+        if (size >= 5) {
+            // Use greedy layer-by-layer for larger boards
+            path = GreedyLayerSolver.solve(size, tiles);
+        } else {
+            A_star solver = new A_star(initial, 10, 1);
+            path = solver.printPath();
+        }
         StringBuilder sb = new StringBuilder(path.length);
         for (Board.Direction d : path) {
             switch (d) {
