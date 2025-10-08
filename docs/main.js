@@ -150,6 +150,26 @@ async function waitForCheerpJLoader(timeoutMs = 10000) {
   throw new Error('CheerpJ loader not ready');
 }
 
+function ensureCheerpJLoaded() {
+  if (typeof window.cheerpjInit === 'function') return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-cheerpj-loader]');
+    if (existing) {
+      // Fallback: poll until available
+      waitForCheerpJLoader(10000).then(resolve).catch(reject);
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = 'https://cjrtnc.leaningtech.com/3.1/loader.js';
+    s.defer = true;
+    s.async = true;
+    s.setAttribute('data-cheerpj-loader', 'true');
+    s.onload = () => waitForCheerpJLoader(10000).then(resolve).catch(reject);
+    s.onerror = () => reject(new Error('Failed to load CheerpJ loader'));
+    document.head.appendChild(s);
+  });
+}
+
 async function waitForCheerpJAPIs(timeoutMs = 5000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -182,8 +202,8 @@ function solve() {
 
 async function solveWithJava() {
   try {
-    // Ensure CheerpJ loader is present
-    await waitForCheerpJLoader();
+    // Ensure CheerpJ loader is present (inject if missing)
+    await ensureCheerpJLoaded();
     if (!javaInitPromise) {
       statusEl.textContent = 'Initializing Java solver...';
       javaInitPromise = (async () => {
